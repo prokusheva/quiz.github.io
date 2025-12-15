@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Christmas Quiz</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@700&family=Inter:wght@400;600;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0fdf4;
+            color: #1e293b;
+        }
+        .christmas-font { font-family: 'Mountains of Christmas', serif; }
+        
+        /* Snowflakes */
+        .snowflake {
+            position: fixed; top: -10px; z-index: 0; user-select: none; cursor: default;
+            animation-name: fall, shake; animation-duration: 10s, 3s;
+            animation-iteration-count: infinite, infinite; animation-timing-function: linear, ease-in-out;
+            color: #dcfce7;
+        }
+        @keyframes fall { 0% { top: -10%; } 100% { top: 100%; } }
+        @keyframes shake { 0% { transform: translateX(0px); } 50% { transform: translateX(80px); } 100% { transform: translateX(0px); } }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #ef4444; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #dc2626; }
+    </style>
+</head>
+<body>
+    <div id="root" class="relative z-10"></div>
+    
+    <!-- Decorative Snowflakes -->
+    <div class="snowflake" style="left: 10%; font-size: 1.5em; animation-delay: 0s, 1s">❄️</div>
+    <div class="snowflake" style="left: 30%; font-size: 2em; animation-delay: 2s, 0s">❅</div>
+    <div class="snowflake" style="left: 70%; font-size: 1.2em; animation-delay: 4s, 2s">❆</div>
+    <div class="snowflake" style="left: 90%; font-size: 2.5em; animation-delay: 1s, 1s">❄️</div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- TRANSLATIONS ---
+        const UI_TEXT = {
+            en: {
+                title: "Ultimate Christmas Quiz",
+                setupTitle: "Setup your holiday game",
+                stepLang: "Select Language 🌍",
+                stepPlayers: "Step 1: Who is playing? 🧤",
+                stepTime: "Step 2: How much time do you have? ⏳",
+                stepLevel: "Step 3: What is the level? ❄️",
+                stepTopics: "Final Check: Pick Topics 🎁",
+                enterName: "Enter elf name...",
+                waiting: "Waiting for players to join...",
+                minutes: "MINUTES",
+                easy: "Easy-peasy 🧣",
+                easyDesc: "Relaxed pace. For families & casual fun.",
+                hard: "We are Geeks 🎸",
+                hardDesc: "Fast pace. Harder questions. For the pros.",
+                recTitle: "System Recommendation",
+                recMsg: (p, t, l, c) => `For ${p} players & ${t} mins in ${l} mode, we recommend ${c} topics.`,
+                selected: (n) => `You have selected ${n} topics.`,
+                back: "← Back",
+                next: "Next Step →",
+                start: "Start Game 🚀",
+                correct: "CORRECT!",
+                oops: "OOPS!",
+                timesUp: "TIME'S UP!",
+                points: "Points",
+                didYouKnow: "Did you know?",
+                nextQ: "Next Question →",
+                wins: "Wins!",
+                with: "with",
+                setupNew: "Setup New Game 🔄",
+                currentTurn: "Current Turn"
+            },
+            ru: {
+                title: "Новогодний Квиз",
+                setupTitle: "Настройка игры",
+                stepLang: "Выберите язык 🌍",
+                stepPlayers: "Шаг 1: Кто играет? 🧤",
+                stepTime: "Шаг 2: Сколько у вас времени? ⏳",
+                stepLevel: "Шаг 3: Уровень сложности? ❄️",
+                stepTopics: "Финал: Выберите темы 🎁",
+                enterName: "Имя эльфа...",
+                waiting: "Ждем игроков...",
+                minutes: "МИНУТ",
+                easy: "Легкотня 🧣",
+                easyDesc: "Спокойный темп. Для семьи и веселья.",
+                hard: "Мы Гики 🎸",
+                hardDesc: "Быстрый темп. Сложные вопросы. Для профи.",
+                recTitle: "Рекомендация",
+                recMsg: (p, t, l, c) => `Для ${p} игроков и ${t} мин (${l}), рекомендуем ${c} темы.`,
+                selected: (n) => `Выбрано тем: ${n}.`,
+                back: "← Назад",
+                next: "Далее →",
+                start: "Поехали! 🚀",
+                correct: "ВЕРНО!",
+                oops: "ОЙ!",
+                timesUp: "ВРЕМЯ ВЫШЛО!",
+                points: "Очков",
+                didYouKnow: "А вы знали?",
+                nextQ: "Следующий вопрос →",
+                wins: "Победил!",
+                with: "с результатом",
+                setupNew: "Новая игра 🔄",
+                currentTurn: "Ходит"
+            }
+        };
+
+        // --- QUIZ DATA ---
+        const QUIZ_DATA = {
+            en: [
+                {
+                  name: "Movies 🎬",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "In 'Home Alone', how many brothers does Kevin have?", 
+                        options: ["One", "Two", "Three", "None"], 
+                        answer: 1,
+                        image: "https://www.slashfilm.com/img/gallery/every-home-alone-movie-including-the-reboot-ranked/intro-1701385447.jpg?auto=format&fit=crop&w=800&q=80",
+                        funFact: "Buzz's girlfriend in the photo was actually a boy in a wig because the director thought it would be too mean to mock a real girl."
+                    },
+                    { 
+                        points: 200, 
+                        text: "In 'Love Actually', which song does the Prime Minister dance to?", 
+                        options: ["All I Want for Christmas", "Jump (For My Love)", "Jingle Bell Rock", "Last Christmas"], 
+                        answer: 1,
+                        image: "https://people.com/thmb/K29weXEzJJlibL6h5szw9NQqfJ4=/4000x0/filters:no_upscale():max_bytes(150000):strip_icc():focal(749x0:751x2):format(webp)/Hugh-Grant-Says-He-Dreaded-Filming-Love-Actuallys-Now-Iconic-Dance-Scene-112322-46fafdbf69a24667af3f54b997711efd.jpg",
+                        funFact: "Hugh Grant hated filming this scene and put it off until the very last day of shooting."
+                    },
+                    { 
+                        points: 300, 
+                        text: "In 'Elf', what is the first rule of The Code of Elves?", 
+                        options: ["Be happy", "Treat every day like Christmas", "Work hard", "Sing loud for all to hear"], 
+                        answer: 1,
+                        image: "https://s.abcnews.com/images/Entertainment/ferrell-faizon-elf-ht-mem-171117.jpg",
+                        funFact: "Will Ferrell suffered from massive headaches during filming because of the amount of sugar he had to consume on camera."
+                    },
+                    { 
+                        points: 400, 
+                        text: "Which actor played 6 different roles in 'The Polar Express'?", 
+                        options: ["Tim Allen", "Jim Carrey", "Eddie Murphy", "Tom Hanks"], 
+                        answer: 3,
+                        image: "https://static0.colliderimages.com/wordpress/wp-content/uploads/2023/12/the-polar-express-tom-hanks.jpg",
+                        funFact: "Tom Hanks played the Hero Boy, Father, Conductor, Hinch, Scrooge, and Santa Claus."
+                    },
+                    { 
+                        points: 500, 
+                        text: "What is the name of the angel in 'It's a Wonderful Life'?", 
+                        options: ["Clarence", "Gabriel", "Michael", "Joseph"], 
+                        answer: 0,
+                        image: "https://ichef.bbci.co.uk/images/ic/480xn/p0kd3rys.jpg.webp",
+                        funFact: "The snow in the film was created using a new mixture of water, soap, and a fire-fighting chemical called Fomaite."
+                    }
+                  ]
+                },
+                {
+                  name: "Music 🎵",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "The film 'Last Christmas' is inspired by the music of whom?", 
+                        options: ["Wham", "Mariah Carey", "Elton John", "Abba"], 
+                        answer: 0,
+                        image: "https://i.guim.co.uk/img/media/416f697f80fdb8106b3b45d5f252b07ebe33e679/0_331_5472_3283/master/5472.jpg?width=480&dpr=1&s=none&crop=none",
+                        funFact: "George Michael gave his blessing for the film before he passed away in 2016."
+                    },
+                    { 
+                        points: 200, 
+                        text: "What is the opening line to Shakin' Stevens' 'Merry Christmas Everyone'?", 
+                        options: ["I'm driving home for Christmas", "Snow is falling, all around me", "Last Christmas I gave you my heart", "It's beginning to look a lot like Christmas"], 
+                        answer: 1,
+                        image: "https://number1sblog.com/wp-content/uploads/2022/08/r-1963715-1255359085.jpeg",
+                        funFact: "The video was shot in Sweden, but it was actually filmed during a very warm autumn, so the snow was fake."
+                    },
+                    { 
+                        points: 300, 
+                        text: "When was the first version of 'Santa Claus Is Comin' to Town' released?", 
+                        options: ["1934", "1954", "1944", "1964"], 
+                        answer: 0,
+                        image: "https://www.bear-family.com/media/image/06/fe/5a/4050538878363_600x600.jpg",
+                        funFact: "It became an instant hit, selling 30,000 records within 24 hours of its release."
+                    },
+                    { 
+                        points: 400, 
+                        text: "Who is widely considered the King of Christmas music?", 
+                        options: ["Michael Bublé", "Frank Sinatra", "Bing Crosby", "Elvis Presley"], 
+                        answer: 0,
+                        image: "https://musiccanada.wordpress.com/wp-content/uploads/2015/12/michael-buble-christmas-in-hollywood.jpg",
+                        funFact: "Michael Bublé's 'Christmas' album has topped the charts every holiday season since its release in 2011."
+                    },
+                    { 
+                        points: 500, 
+                        text: "How many 'la's are in the song 'Deck the Halls'?", 
+                        options: ["42", "64", "88", "96"], 
+                        answer: 3,
+                        image: "https://cdn.hoffmanacademy.com/blog/wp-content/uploads/2021/02/deck-the-halls.jpg",
+                        funFact: "The melody dates back to a 16th-century Welsh New Year's Eve carol called 'Nos Galan'."
+                    }
+                  ]
+                },
+                {
+                  name: "Food 🍗",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "Before turkey, what was the traditional centerpiece of English Christmas feasts?", 
+                        options: ["Chicken", "Goose", "Beef", "Lamb"], 
+                        answer: 1,
+                        image: "https://www.gannett-cdn.com/authoring/2015/12/31/NPPP/ghows-LK-6f17d425-5c98-46d6-9ff5-9573447ffd70-f581b1ee.jpeg",
+                        funFact: "Boar's head was also a popular centerpiece for the wealthy in medieval times."
+                    },
+                    { 
+                        points: 200, 
+                        text: "Traditionally, when should British start making a Christmas pudding?", 
+                        options: ["Christmas Eve", "1st of December", "5 weeks before Christmas", "New Year's Day"], 
+                        answer: 2,
+                        image: "https://www.christinascucina.com/wp-content/uploads/2016/12/fullsizeoutput_38f4-1024x751.jpeg",
+                        funFact: "This day is known as 'Stir-up Sunday', and tradition says everyone in the house should take a turn stirring the mix."
+                    },
+                    { 
+                        points: 300, 
+                        text: "What is the most popular vegetarian alternative to a roast turkey?", 
+                        options: ["Tofu turkey", "Nut roast", "Veggie pie", "Mushroom Wellington"], 
+                        answer: 1,
+                        image: "https://ichef.bbci.co.uk/food/ic/food_16x9_1600/recipes/nut_roast_38249_16x9.jpg",
+                        funFact: "The first recorded recipe for a nut roast appeared in 1908."
+                    },
+                    { 
+                        points: 400, 
+                        text: "In 2009, how heavy was the largest gingerbread man made by IKEA?", 
+                        options: ["100 kg", "350 kg", "651 kg", "900 kg"], 
+                        answer: 2,
+                        image: "https://media-cldnry.s-nbcnews.com/image/upload/t_fit-560w,f_auto,q_auto:best/ap/fb845a18-5260-4653-ab2a-a723b6b79be7.jpg",
+                        funFact: "It was made in Oslo, Norway, and weighed as much as a small car!"
+                    },
+                    { 
+                        points: 500, 
+                        text: "What gives gingerbread its characteristic dark color?", 
+                        options: ["Brown sugar", "Molasses", "Dark chocolate", "Coffee"], 
+                        answer: 1,
+                        image: "https://images.getrecipekit.com/20240131162132-classic-20gingy.PNG",
+                        funFact: "Queen Elizabeth I is credited with inventing the gingerbread man, serving them to visiting dignitaries."
+                    }
+                  ]
+                },
+                {
+                    name: "Global Eats 🥘",
+                    questions: [
+                      { 
+                          points: 100, 
+                          text: "What Spanish fried dough is served with hot chocolate on Christmas morning?", 
+                          options: ["Churros", "Donuts", "Croissants", "Waffles"], 
+                          answer: 0, 
+                          image: "https://www.magicaltreatsathome.com/wp-content/uploads/2019/12/christmas-tree-churro-sm-5.jpg",
+                          funFact: "Spanish shepherds created churros because they were easy to cook over an open fire in the mountains."
+                      },
+                      { 
+                          points: 200, 
+                          text: "What is the main protein at Australian Christmas barbecues?", 
+                          options: ["Turkey", "Steak", "Prawns", "Kangaroo"], 
+                          answer: 2, 
+                          image: "https://seafoodindustryaustralia.com.au/wp-content/uploads/2019/11/Christmas-prawn-sales-at-Sydney-Fish-Market.-Credit_-Sydney-Fish-Market..jpg",
+                          funFact: "Australians consume over 40% of their yearly prawn consumption during the Christmas period."
+                      },
+                      { 
+                          points: 300, 
+                          text: "Which country(s) leaves rice pudding for Christmas elves (tomte/nisse)?", 
+                          options: ["Germany", "UK", "Scandinavia", "France"], 
+                          answer: 2, 
+                          image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQfTwqmqdDucIfCv7ES7ITvrBGKyV7DcAybVQ&s",
+                          funFact: "If you don't give the Nisse his porridge, legend says he might tie the cows' tails together!"
+                      },
+                      { 
+                          points: 400, 
+                          text: "What internal temperature must turkey reach to be safe?", 
+                          options: ["60C", "74C", "85C", "100C"], 
+                          answer: 1, 
+                          image: "https://www.licious.in/blog/wp-content/uploads/2016/12/blog-turkey-dinner.jpg",
+                          funFact: "The pop-up timers found in turkeys are often inaccurate; a meat thermometer is much safer."
+                      },
+                      { 
+                          points: 500, 
+                          text: "Where Banista is eaten for Christmas?", 
+                          options: ["Bulgaria", "Romania", "Greece", "Turkey"], 
+                          answer: 0, 
+                          image: "https://healthywithnedi.com/wp-content/uploads/2015/12/316.HealthyWithNedi.jpg",
+                          funFact: "Lucky charms or coins are often hidden inside the Banitsa layers to predict the fortune of family members."
+                      }
+                    ]
+                },
+                {
+                  name: "Drinks 🍷",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "Which popular Christmas drink is made with milk, cream, sugar, and whipped eggs?", 
+                        options: ["Eggnog", "Hot Chocolate", "Mulled Wine", "Baileys"], 
+                        answer: 0, 
+                        image: "https://dairyfarmersofcanada.ca/sites/default/files/styles/recipe_image/public/image_file_browser/conso_recipe/2019/iStock-498303332.jpg.jpeg?itok=zoCRIaB_",
+                        funFact: "The word 'nog' may come from 'noggin', a wooden cup used to serve alcohol in the Middle Ages."
+                    },
+                    { 
+                        points: 200, 
+                        text: "What is the main alcohol in traditional British Christmas punch?", 
+                        options: ["Vodka", "Whisky", "Brandy", "Gin"], 
+                        answer: 2, 
+                        image: "https://www.seriouseats.com/thmb/X9MDBlaM2jwzbFGN9oUzcESqlz8=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc():format(webp)/20231116-SEA-FlamingPunch-VictorProtasio-hero-5d251a208a034b03af84a3db60467e1d.jpg",
+                        funFact: "In the 1800s, it was common to set the brandy on fire before serving the pudding or punch."
+                    },
+                    { 
+                        points: 300, 
+                        text: "What Scandinavian Christmas drink is served warm and spiced?", 
+                        options: ["Glogg", "Sangria", "Eggnog", "Cider"], 
+                        answer: 0, 
+                        image: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Gl%C3%B6gg_i_mugg.jpg/800px-Gl%C3%B6gg_i_mugg.jpg",
+                        funFact: "Glogg often contains raisins and almonds at the bottom of the cup, which are eaten with a spoon."
+                    },
+                    { 
+                        points: 400, 
+                        text: "Which civilization first developed the chocolate drink?", 
+                        options: ["Romans", "Aztecs", "Egyptians", "Greeks"], 
+                        answer: 1, 
+                        image: "https://www.joyfulbelly.com/Ayurveda/images/content/25331-Xocolatl-Spicy-Aztec-Hot-Chocolate.jpg",
+                        funFact: "The Aztecs drank it cold and spicy, often flavored with chili peppers."
+                    },
+                    { 
+                        points: 500, 
+                        text: "In Italy, festivities start with a warming glass of Bombardino. What is the drink made of?", 
+                        options: ["Amaretto and Cocoa", "Brandy and Advocaat", "Red Wine and Cinnamon", "Grappa and Honey"], 
+                        answer: 1, 
+                        image: "https://www.roner.com/media/image_fullscreen/bombardino_painted.jpg",
+                        funFact: "Its name means 'the bomb' because of its high alcohol content and hot temperature."
+                    }
+                  ]
+                },
+                {
+                  name: "Facts 🧠",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "How many calories does the average Christmas dinner contain?", 
+                        options: ["1000-2000", "2000-3000", "3000-6000", "8000+"], 
+                        answer: 2, 
+                        image: "https://stpierrebakery-co-uk.s3.eu-west-1.amazonaws.com/app/uploads/2020/11/Delicious-Christmas-Meal-Recipe-Ideas-for-the-Whole-Family-1440x1153.jpg",
+                        funFact: "That's roughly three times the recommended daily intake for an adult!"
+                    },
+                    { 
+                        points: 200, 
+                        text: "What is Rudolph's favorite food actually?", 
+                        options: ["Carrots", "Lichen", "Apples", "Grass"], 
+                        answer: 1, 
+                        image: "https://media.gettyimages.com/id/540066437/video/a-reindeer-eats-moss-in-a-field-near-tromso.jpg?s=640x640&k=20&c=Xp7kmHXbN0S8FpnGI41k4cABmXjFQGCu8Jy09bzWB5o=",
+                        funFact: "Lichen (Reindeer moss) keeps them warm because it ferments in their stomach, generating body heat."
+                    },
+                    { 
+                        points: 300, 
+                        text: "What ancient Roman festival influenced Christmas food traditions?", 
+                        options: ["Lupercalia", "Saturnalia", "Bacchanalia", "Lemuria"], 
+                        answer: 1, 
+                        image: "https://digventures.com/wp-content/uploads/2023/12/Roman-Saturnalia-1200-x-800-941x627.png",
+                        funFact: "During Saturnalia, social roles were reversed; masters served slaves, and gambling was permitted."
+                    },
+                    { 
+                        points: 400, 
+                        text: "Where do families beat a 'Caga Tio' (pooping log) for candy?", 
+                        options: ["Italy", "Portugal", "Spain", "France"], 
+                        answer: 2, 
+                        image: "https://culinarybackstreets.s3.us-east-2.amazonaws.com/culinarybackstreets/uploads/cb_barcelona_cagatio_pm_final2.jpg",
+                        funFact: "Catalan children 'feed' the log in the days leading up to Christmas so it will 'poop' out better gifts."
+                    },
+                    { 
+                        points: 500, 
+                        text: "In which US state would you find the town Santa Claus?", 
+                        options: ["Indiana", "Alaska", "North Pole", "Florida"], 
+                        answer: 0, 
+                        image: "https://ichef.bbci.co.uk/ace/standard/976/cpsprodpb/1600A/production/_99322109_img_5128.jpg",
+                        funFact: "The town receives over 400,000 pieces of mail each year, which " + "elves" + " volunteer to answer."
+                    }
+                  ]
+                },
+                {
+                  name: "History 🤓",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "Where does the word 'winter' come from?", 
+                        options: ["Old English/Germanic for 'Time of Water'", "Latin for 'Cold'", "Greek for 'Snow'", "Celtic for 'Darkness'"], 
+                        answer: 0, 
+                        image: "https://paganheim.com/cdn/shop/articles/anglo-saxon-futhorc-anguliscum_36e8a838-129d-4a0b-b8e6-bd418a24f9fa.jpg",
+                        funFact: "The Germanic root 'wed' refers to 'wet', implying winter is the wet season."
+                    },
+                    { 
+                        points: 200, 
+                        text: "What has been the world’s heaviest Christmas present?", 
+                        options: ["Eiffel Tower", "Statue of Liberty", "Mona Lisa painting", "Cargo plane of gifts"], 
+                        answer: 1, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSyPl9NtPq81MkdXSW80Pekr3wimMoonUS1Nw&s",
+                        funFact: "France gave the Statue of Liberty to the US as a Christmas gift in 1886. It weighed 225 tons."
+                    },
+                    { 
+                        points: 300, 
+                        text: "The term \"Xmas\" comes from which language?", 
+                        options: ["Chinese", "Greek", "Celtic", "Latin"], 
+                        answer: 1, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRuM6QiG33VjQPQluXGjMuLb_EkYkmemD61ZA&s",
+                        funFact: "The 'X' represents the Greek letter Chi, which is the first letter of Christ's name in Greek (Χριστός)."
+                    },
+                    { 
+                        points: 400, 
+                        text: "Which 17th-century English ruler banned Christmas?", 
+                        options: ["King Henry VIII", "Oliver Cromwell", "Queen Victoria", "King Charles I"], 
+                        answer: 1, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ7JFEiCiq36WRvvZtpPCot2KKyO99-RbaCMA&s",
+                        funFact: "The ban lasted for nearly 20 years. Soldiers even confiscated food cooked for Christmas celebrations."
+                    },
+                    { 
+                        points: 500, 
+                        text: "Why is the song \"Jingle Bells\" historically important?", 
+                        options: ["The first song ever played in space", "Played in hospital for the birth of any child on 25.12", "Jesus' favourite song", "The highest grossing song of all time"], 
+                        answer: 0, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQcmxugEVRg-7LjxuXOF-EEmVYjDn8Mu6Tnlg&s",
+                        funFact: "Astronauts Tom Stafford and Wally Schirra played it on a harmonica and bells on Gemini 6 in 1965."
+                    }
+                  ]
+                },
+                {
+                  name: "Santa 🎅",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "What snack do children usually leave for Santa?", 
+                        options: ["Cookies & Milk", "Pizza & Soda", "Cake & Tea", "Pie & Coffee"], 
+                        answer: 0, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQxASpHEp0yz1XULM1VOG5ChM5m6TiJj9RYDQ&s",
+                        funFact: "This tradition became popular in the US during the Great Depression as a way to show gratitude."
+                    },
+                    { 
+                        points: 200, 
+                        text: "How many reindeer pull Santa's sleigh (counting Rudolph)?", 
+                        options: ["8", "9", "10", "12"], 
+                        answer: 1, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRSh7Twt8ul-7oMT0pl0dWFJFwVocCxr6q8eA&s",
+                        funFact: "Donner and Blitzen were originally named Dunder and Blixem, which is Dutch for Thunder and Lightning."
+                    },
+                    { 
+                        points: 300, 
+                        text: "In what century did Saint Nicholas live?", 
+                        options: ["6th century", "1st century", "14th century", "4th century "], 
+                        answer: 3, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT4b-msBa_ujLYgEZ8GR9VtVDBqIVk82QFzYw&s",
+                        funFact: "Saint Nicholas was famous for giving secret gifts, such as putting coins in shoes left out for him."
+                    },
+                    { 
+                        points: 400, 
+                        text: "In Iceland, over how many nights \"Yule Lads\" bring gifts to children?", 
+                        options: ["1 night", "5 nights", "10 nights", "13 nights"], 
+                        answer: 3, 
+                        image: "https://www.sunfilm.is/cdn/shop/products/f001-1_800x.jpg?v=1617262660",
+                        funFact: "The Yule Lads have names like Sausage-Swiper, Door-Slammer, and Spoon-Licker."
+                    },
+                    { 
+                        points: 500, 
+                        text: "Which of the following is not a name for Santa worlwide?", 
+                        options: ["Papa Rosso", "Pere Noel", "Kriss Kringle", "Joulupukki"], 
+                        answer: 0, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTm3hVfrdkcNzj_263JN35EiRHU1U51hFoeZF_Y7aa7JQ&s",
+                        funFact: "Papa Rosso is made up. Joulupukki is Finnish for 'Christmas Goat', stemming from pagan traditions."
+                    }
+                  ]
+                },
+                {
+                  name: "Traditions 🌍",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "In Colombia, people run around with suitcases at midnight to...", 
+                        options: ["Give gifts to neighbors", "Go on a trip next year", "Get as many gifts as possible", "Throw away the old suitcase"], 
+                        answer: 1, 
+                        image: "https://www.nomadichustle.com/wp-content/uploads/2025/05/colombia-new-years-traditions-2.webp",
+                        funFact: "They run around the block as fast as possible to ensure their travels in the new year are plentiful."
+                    },
+                    { 
+                        points: 200, 
+                        text: "In Italy and Mexico, there’s an old tradition that says if you want to find love in the new year, you should…", 
+                        options: ["Keep Santa's hat on all night", "Fall asleep under the Christmas tree", "Wear red underwear", "Eat two mandarins"], 
+                        answer: 2, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRVtNL2EscGCqGDs6j7_mRtd1AlkqKMT6awMw&s",
+                        funFact: "The underwear must be a gift from someone else to work, according to the superstition."
+                    },
+                    { 
+                        points: 300, 
+                        text: "In Caracas, Venezuela, traditionally how do people travel to early morning Christmas Mass?", 
+                        options: ["On horses", "In boats", "On roller skates", "Walking backwards"], 
+                        answer: 2, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQJXl9bji8fyGalzp6VPjUTmAnw1vhOyWvOrMTtor7z&s",
+                        funFact: "The city actually closes the streets to cars until 8 a.m. to make it safe for the skaters."
+                    },
+                    { 
+                        points: 400, 
+                        text: "In Norway, people hide their ___ on Christmas Eve so witches won't steal them.", 
+                        options: ["Shoes", "Brooms", "Presents", "Candles"], 
+                        answer: 1, 
+                        image: "https://miro.medium.com/v2/resize:fit:1400/1*kUEQ3yqsmAUs6Ldryj2rAQ.jpeg",
+                        funFact: "The tradition dates back to pagan times when people believed evil spirits and witches came out on Christmas Eve."
+                    },
+                    { 
+                        points: 500, 
+                        text: "What do guests traditionally bring and leave on the doorstep on New Year's Eve in Greece?", 
+                        options: ["A fruit basket", "An olive branch", "A wet stone", "An old shoe"], 
+                        answer: 2, 
+                        image: "https://greekreporter.com/wp-content/uploads/2019/12/podariko_new_year_custom_Greece-1.jpg",
+                        funFact: "A heavy stone symbolizes a heavy wallet filled with gold, while a mossy stone symbolizes luck."
+                    }
+                  ]
+                }
+            ],
+            ru: [
+                {
+                  name: "Фильмы 🎬",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "Сколько братьев у Кевина в фильме 'Один дома'?", 
+                        options: ["Один", "Два", "Три", "Ни одного"], 
+                        answer: 1,
+                        image: "https://www.slashfilm.com/img/gallery/every-home-alone-movie-including-the-reboot-ranked/intro-1701385447.jpg?auto=format&fit=crop&w=800&q=80",
+                        funFact: "Девушка Базза на фото — это мальчик в парике, так как режиссер посчитал, что смеяться над реальной девочкой было бы жестоко."
+                    },
+                    { 
+                        points: 200, 
+                        text: "Под какую песню танцует премьер-министр в 'Реальной любви'?", 
+                        options: ["All I Want for Christmas", "Jump (For My Love)", "Jingle Bell Rock", "Last Christmas"], 
+                        answer: 1,
+                        image: "https://people.com/thmb/K29weXEzJJlibL6h5szw9NQqfJ4=/4000x0/filters:no_upscale():max_bytes(150000):strip_icc():focal(749x0:751x2):format(webp)/Hugh-Grant-Says-He-Dreaded-Filming-Love-Actuallys-Now-Iconic-Dance-Scene-112322-46fafdbf69a24667af3f54b997711efd.jpg",
+                        funFact: "Хью Грант ненавидел снимать эту сцену и откладывал ее до самого последнего съемочного дня."
+                    },
+                    { 
+                        points: 300, 
+                        text: "Какое первое правило в Кодексе эльфов в фильме 'Эльф'?", 
+                        options: ["Будь счастлив", "Считай каждый день Рождеством", "Работай усердно", "Пой громко, чтобы все слышали"], 
+                        answer: 1,
+                        image: "https://s.abcnews.com/images/Entertainment/ferrell-faizon-elf-ht-mem-171117.jpg",
+                        funFact: "Уилл Феррелл страдал от сильных головных болей во время съемок из-за огромного количества сахара, который ему приходилось есть."
+                    },
+                    { 
+                        points: 400, 
+                        text: "Какой актер сыграл 6 разных ролей в 'Полярном экспрессе'?", 
+                        options: ["Тим Аллен", "Джим Керри", "Эдди Мерфи", "Том Хэнкс"], 
+                        answer: 3,
+                        image: "https://static0.colliderimages.com/wordpress/wp-content/uploads/2023/12/the-polar-express-tom-hanks.jpg",
+                        funFact: "Том Хэнкс сыграл мальчика-героя, отца, кондуктора, бродягу, Скруджа и Санта-Клауса."
+                    },
+                    { 
+                        points: 500, 
+                        text: "Как зовут ангела в фильме 'Эта замечательная жизнь'?", 
+                        options: ["Кларенс", "Габриэль", "Майкл", "Джозеф"], 
+                        answer: 0,
+                        image: "https://ichef.bbci.co.uk/images/ic/480xn/p0kd3rys.jpg.webp",
+                        funFact: "Снег в фильме был создан с использованием новой смеси воды, мыла и пожарной пены."
+                    }
+                  ]
+                },
+                {
+                  name: "Музыка 🎵",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "Фильм 'Рождество на двоих' (Last Christmas) вдохновлен чьей музыкой?", 
+                        options: ["Wham!", "Мэрайя Кэри", "Элтон Джон", "ABBA"], 
+                        answer: 0,
+                        image: "https://i.guim.co.uk/img/media/416f697f80fdb8106b3b45d5f252b07ebe33e679/0_331_5472_3283/master/5472.jpg?width=480&dpr=1&s=none&crop=none",
+                        funFact: "Джордж Майкл благословил фильм перед своей смертью в 2016 году."
+                    },
+                    { 
+                        points: 200, 
+                        text: "С какой строчки начинается 'Merry Christmas Everyone' Шейкина Стивенса?", 
+                        options: ["I'm driving home for Christmas", "Snow is falling, all around me", "Last Christmas I gave you my heart", "It's beginning to look a lot like Christmas"], 
+                        answer: 1,
+                        image: "https://number1sblog.com/wp-content/uploads/2022/08/r-1963715-1255359085.jpeg",
+                        funFact: "Клип снимали в Швеции, но на самом деле была очень теплая осень, поэтому снег был искусственным."
+                    },
+                    { 
+                        points: 300, 
+                        text: "Когда была выпущена первая версия 'Santa Claus Is Comin' to Town'?", 
+                        options: ["1934", "1954", "1944", "1964"], 
+                        answer: 0,
+                        image: "https://www.bear-family.com/media/image/06/fe/5a/4050538878363_600x600.jpg",
+                        funFact: "Песня стала мгновенным хитом: за 24 часа после выхода было продано 30 000 пластинок."
+                    },
+                    { 
+                        points: 400, 
+                        text: "Кого считают Королем рождественской музыки?", 
+                        options: ["Майкл Бубле", "Фрэнк Синатра", "Бинг Кросби", "Элвис Пресли"], 
+                        answer: 0,
+                        image: "https://musiccanada.wordpress.com/wp-content/uploads/2015/12/michael-buble-christmas-in-hollywood.jpg",
+                        funFact: "Альбом Майкла Бубле 'Christmas' возглавляет чарты каждый праздничный сезон с момента выхода в 2011 году."
+                    },
+                    { 
+                        points: 500, 
+                        text: "Сколько раз поется 'la' в песне 'Deck the Halls'?", 
+                        options: ["42", "64", "88", "96"], 
+                        answer: 3,
+                        image: "https://cdn.hoffmanacademy.com/blog/wp-content/uploads/2021/02/deck-the-halls.jpg",
+                        funFact: "Мелодия восходит к валлийской песне XVI века 'Nos Galan', которую пели в канун Нового года."
+                    }
+                  ]
+                },
+                {
+                  name: "Еда 🍗",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "Какое блюдо было главным на английском столе до индейки?", 
+                        options: ["Курица", "Гусь", "Говядина", "Баранина"], 
+                        answer: 1,
+                        image: "https://www.gannett-cdn.com/authoring/2015/12/31/NPPP/ghows-LK-6f17d425-5c98-46d6-9ff5-9573447ffd70-f581b1ee.jpeg",
+                        funFact: "В средневековье у богатых популярным блюдом также была голова кабана."
+                    },
+                    { 
+                        points: 200, 
+                        text: "Когда британцы традиционно начинают готовить рождественский пудинг?", 
+                        options: ["В сочельник", "1 декабря", "За 5 недель до Рождества", "На Новый год"], 
+                        answer: 2,
+                        image: "https://www.christinascucina.com/wp-content/uploads/2016/12/fullsizeoutput_38f4-1024x751.jpeg",
+                        funFact: "Этот день известен как 'Stir-up Sunday', и по традиции каждый член семьи должен помешать смесь."
+                    },
+                    { 
+                        points: 300, 
+                        text: "Какая самая популярная вегетарианская альтернатива жареной индейке?", 
+                        options: ["Тофу-индейка", "Ореховое жаркое", "Овощной пирог", "Грибной Веллингтон"], 
+                        answer: 1,
+                        image: "https://ichef.bbci.co.uk/food/ic/food_16x9_1600/recipes/nut_roast_38249_16x9.jpg",
+                        funFact: "Первый записанный рецепт орехового жаркого (Nut roast) появился в 1908 году."
+                    },
+                    { 
+                        points: 400, 
+                        text: "Сколько весил самый большой пряничный человечек, сделанный IKEA в 2009 году?", 
+                        options: ["100 кг", "350 кг", "651 кг", "900 кг"], 
+                        answer: 2,
+                        image: "https://media-cldnry.s-nbcnews.com/image/upload/t_fit-560w,f_auto,q_auto:best/ap/fb845a18-5260-4653-ab2a-a723b6b79be7.jpg",
+                        funFact: "Его сделали в Осло (Норвегия), и он весил как небольшой автомобиль!"
+                    },
+                    { 
+                        points: 500, 
+                        text: "Что придает имбирным пряникам характерный темный цвет?", 
+                        options: ["Коричневый сахар", "Меласса (патока)", "Темный шоколад", "Кофе"], 
+                        answer: 1,
+                        image: "https://images.getrecipekit.com/20240131162132-classic-20gingy.PNG",
+                        funFact: "Изобретение пряничного человечка приписывают королеве Елизавете I, которая подавала их гостям."
+                    }
+                  ]
+                },
+                {
+                    name: "Мировая Еда 🥘",
+                    questions: [
+                      { 
+                          points: 100, 
+                          text: "Какое испанское жареное тесто подают с горячим шоколадом рождественским утром?", 
+                          options: ["Чуррос", "Пончики", "Круассаны", "Вафли"], 
+                          answer: 0, 
+                          image: "https://www.magicaltreatsathome.com/wp-content/uploads/2019/12/christmas-tree-churro-sm-5.jpg",
+                          funFact: "Испанские пастухи придумали чуррос, потому что их было легко готовить на открытом огне в горах."
+                      },
+                      { 
+                          points: 200, 
+                          text: "Какое главное блюдо на австралийском рождественском барбекю?", 
+                          options: ["Индейка", "Стейк", "Креветки", "Кенгуру"], 
+                          answer: 2, 
+                          image: "https://seafoodindustryaustralia.com.au/wp-content/uploads/2019/11/Christmas-prawn-sales-at-Sydney-Fish-Market.-Credit_-Sydney-Fish-Market..jpg",
+                          funFact: "Австралийцы съедают более 40% своего годового потребления креветок именно в рождественский период."
+                      },
+                      { 
+                          points: 300, 
+                          text: "В какой стране оставляют рисовую кашу для рождественских эльфов?", 
+                          options: ["Германия", "Великобритания", "Скандинавия", "Франция"], 
+                          answer: 2, 
+                          image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQfTwqmqdDucIfCv7ES7ITvrBGKyV7DcAybVQ&s",
+                          funFact: "Легенда гласит: если не дать Ниссе (эльфу) его кашу, он может связать хвосты коровам!"
+                      },
+                      { 
+                          points: 400, 
+                          text: "Какую внутреннюю температуру должна иметь индейка, чтобы быть безопасной?", 
+                          options: ["60°C", "74°C", "85°C", "100°C"], 
+                          answer: 1, 
+                          image: "https://www.licious.in/blog/wp-content/uploads/2016/12/blog-turkey-dinner.jpg",
+                          funFact: "Встроенные таймеры в индейках часто неточны; мясной термометр гораздо надежнее."
+                      },
+                      { 
+                          points: 500, 
+                          text: "Где на Рождество едят блюдо под названием Баница?", 
+                          options: ["Болгария", "Румыния", "Греция", "Турция"], 
+                          answer: 0, 
+                          image: "https://healthywithnedi.com/wp-content/uploads/2015/12/316.HealthyWithNedi.jpg",
+                          funFact: "В слои баницы часто прячут счастливые талисманы или монеты, чтобы предсказать судьбу."
+                      }
+                    ]
+                },
+                {
+                  name: "Напитки 🍷",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "Какой популярный напиток делают из молока, сливок, сахара и взбитых яиц?", 
+                        options: ["Эгг-ног", "Горячий шоколад", "Глинтвейн", "Бейлиз"], 
+                        answer: 0, 
+                        image: "https://dairyfarmersofcanada.ca/sites/default/files/styles/recipe_image/public/image_file_browser/conso_recipe/2019/iStock-498303332.jpg.jpeg?itok=zoCRIaB_",
+                        funFact: "Слово 'nog' может происходить от 'noggin' — деревянной кружки, использовавшейся для алкоголя в средние века."
+                    },
+                    { 
+                        points: 200, 
+                        text: "Какой главный алкоголь в традиционном британском пунше?", 
+                        options: ["Водка", "Виски", "Бренди", "Джин"], 
+                        answer: 2, 
+                        image: "https://www.seriouseats.com/thmb/X9MDBlaM2jwzbFGN9oUzcESqlz8=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc():format(webp)/20231116-SEA-FlamingPunch-VictorProtasio-hero-5d251a208a034b03af84a3db60467e1d.jpg",
+                        funFact: "В 1800-х годах было принято поджигать бренди перед подачей пудинга или пунша."
+                    },
+                    { 
+                        points: 300, 
+                        text: "Какой скандинавский напиток подают теплым и со специями?", 
+                        options: ["Глёг", "Сангрия", "Эгг-ног", "Сидр"], 
+                        answer: 0, 
+                        image: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Gl%C3%B6gg_i_mugg.jpg/800px-Gl%C3%B6gg_i_mugg.jpg",
+                        funFact: "Глёг часто содержит изюм и миндаль на дне чашки, которые едят ложкой."
+                    },
+                    { 
+                        points: 400, 
+                        text: "Какая цивилизация первой придумала шоколадный напиток?", 
+                        options: ["Римляне", "Ацтеки", "Египтяне", "Греки"], 
+                        answer: 1, 
+                        image: "https://www.joyfulbelly.com/Ayurveda/images/content/25331-Xocolatl-Spicy-Aztec-Hot-Chocolate.jpg",
+                        funFact: "Ацтеки пили его холодным и острым, часто с добавлением перца чили."
+                    },
+                    { 
+                        points: 500, 
+                        text: "В Италии праздники начинают с бокала Бомбардино. Из чего он?", 
+                        options: ["Амаретто и какао", "Бренди и Адвокат", "Вино и корица", "Граппа и мед"], 
+                        answer: 1, 
+                        image: "https://www.roner.com/media/image_fullscreen/bombardino_painted.jpg",
+                        funFact: "Название означает 'бомба' из-за высокого содержания алкоголя и высокой температуры подачи."
+                    }
+                  ]
+                },
+                {
+                  name: "Факты 🧠",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "Сколько калорий содержит средний рождественский ужин?", 
+                        options: ["1000-2000", "2000-3000", "3000-6000", "8000+"], 
+                        answer: 2, 
+                        image: "https://stpierrebakery-co-uk.s3.eu-west-1.amazonaws.com/app/uploads/2020/11/Delicious-Christmas-Meal-Recipe-Ideas-for-the-Whole-Family-1440x1153.jpg",
+                        funFact: "Это примерно в три раза больше рекомендуемой суточной нормы для взрослого!"
+                    },
+                    { 
+                        points: 200, 
+                        text: "Какая на самом деле любимая еда Рудольфа?", 
+                        options: ["Морковь", "Лишайник (мох)", "Яблоки", "Трава"], 
+                        answer: 1, 
+                        image: "https://media.gettyimages.com/id/540066437/video/a-reindeer-eats-moss-in-a-field-near-tromso.jpg?s=640x640&k=20&c=Xp7kmHXbN0S8FpnGI41k4cABmXjFQGCu8Jy09bzWB5o=",
+                        funFact: "Лишайник (олений мох) согревает их, так как ферментируется в желудке, выделяя тепло."
+                    },
+                    { 
+                        points: 300, 
+                        text: "Какой древнеримский праздник повлиял на рождественские традиции?", 
+                        options: ["Луперкалии", "Сатурналии", "Вакханалии", "Лемурии"], 
+                        answer: 1, 
+                        image: "https://digventures.com/wp-content/uploads/2023/12/Roman-Saturnalia-1200-x-800-941x627.png",
+                        funFact: "Во время Сатурналий социальные роли менялись: хозяева прислуживали рабам, и разрешались азартные игры."
+                    },
+                    { 
+                        points: 400, 
+                        text: "Где семьи бьют палками 'Кага Тио' (какающее полено) ради конфет?", 
+                        options: ["Италия", "Португалия", "Испания", "Франция"], 
+                        answer: 2, 
+                        image: "https://culinarybackstreets.s3.us-east-2.amazonaws.com/culinarybackstreets/uploads/cb_barcelona_cagatio_pm_final2.jpg",
+                        funFact: "Каталонские дети 'кормят' полено перед Рождеством, чтобы оно 'выкакало' подарки получше."
+                    },
+                    { 
+                        points: 500, 
+                        text: "В каком штате США находится город Санта-Клаус?", 
+                        options: ["Индиана", "Аляска", "Северный Полюс", "Флорида"], 
+                        answer: 0, 
+                        image: "https://ichef.bbci.co.uk/ace/standard/976/cpsprodpb/1600A/production/_99322109_img_5128.jpg",
+                        funFact: "Город получает более 400 000 писем в год, на которые отвечают волонтеры-'эльфы'."
+                    }
+                  ]
+                },
+                {
+                  name: "История 🤓",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "Откуда происходит слово 'зима' (winter)?", 
+                        options: ["Древнегерм. 'Время Воды'", "Латынь 'Холод'", "Греческий 'Снег'", "Кельтский 'Тьма'"], 
+                        answer: 0, 
+                        image: "https://paganheim.com/cdn/shop/articles/anglo-saxon-futhorc-anguliscum_36e8a838-129d-4a0b-b8e6-bd418a24f9fa.jpg",
+                        funFact: "Германский корень 'wed' означает 'влажный', подразумевая, что зима — это влажный сезон."
+                    },
+                    { 
+                        points: 200, 
+                        text: "Какой был самый тяжелый рождественский подарок в мире?", 
+                        options: ["Эйфелева башня", "Статуя Свободы", "Мона Лиза", "Грузовой самолет"], 
+                        answer: 1, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSyPl9NtPq81MkdXSW80Pekr3wimMoonUS1Nw&s",
+                        funFact: "Франция подарила Статую Свободы США на Рождество в 1886 году. Она весила 225 тонн."
+                    },
+                    { 
+                        points: 300, 
+                        text: "Термин 'Xmas' происходит из какого языка?", 
+                        options: ["Китайский", "Греческий", "Кельтский", "Латынь"], 
+                        answer: 1, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRuM6QiG33VjQPQluXGjMuLb_EkYkmemD61ZA&s",
+                        funFact: "'X' представляет греческую букву Хи, первую букву имени Христа на греческом (Χριστός)."
+                    },
+                    { 
+                        points: 400, 
+                        text: "Какой английский правитель 17-го века запретил Рождество?", 
+                        options: ["Генрих VIII", "Оливер Кромвель", "Королева Виктория", "Карл I"], 
+                        answer: 1, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ7JFEiCiq36WRvvZtpPCot2KKyO99-RbaCMA&s",
+                        funFact: "Запрет длился почти 20 лет. Солдаты даже конфисковывали еду, приготовленную для праздника."
+                    },
+                    { 
+                        points: 500, 
+                        text: "Почему песня 'Jingle Bells' исторически важна?", 
+                        options: ["Первая песня в космосе", "Играют в больницах 25.12", "Любимая песня Иисуса", "Самая прибыльная песня"], 
+                        answer: 0, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQcmxugEVRg-7LjxuXOF-EEmVYjDn8Mu6Tnlg&s",
+                        funFact: "Астронавты Том Стаффорд и Уолли Ширра сыграли её на гармонике и колокольчиках на 'Джемини-6' в 1965 году."
+                    }
+                  ]
+                },
+                {
+                  name: "Санта 🎅",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "Какое угощение дети обычно оставляют Санте?", 
+                        options: ["Печенье и молоко", "Пицца и газировка", "Торт и чай", "Пирог и кофе"], 
+                        answer: 0, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQxASpHEp0yz1XULM1VOG5ChM5m6TiJj9RYDQ&s",
+                        funFact: "Эта традиция стала популярной в США во время Великой депрессии как способ выразить благодарность."
+                    },
+                    { 
+                        points: 200, 
+                        text: "Сколько оленей тянут сани Санты (включая Рудольфа)?", 
+                        options: ["8", "9", "10", "12"], 
+                        answer: 1, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRSh7Twt8ul-7oMT0pl0dWFJFwVocCxr6q8eA&s",
+                        funFact: "Доннера и Блитцена изначально звали Дандер и Бликсем, что по-голландски означает Гром и Молния."
+                    },
+                    { 
+                        points: 300, 
+                        text: "В каком веке жил Святой Николай?", 
+                        options: ["6 век", "1 век", "14 век", "4 век"], 
+                        answer: 3, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT4b-msBa_ujLYgEZ8GR9VtVDBqIVk82QFzYw&s",
+                        funFact: "Святой Николай был известен тайными подарками, например, клал монеты в выставленную обувь."
+                    },
+                    { 
+                        points: 400, 
+                        text: "В течение скольких ночей 'Йольские парни' приносят подарки в Исландии?", 
+                        options: ["1 ночь", "5 ночей", "10 ночей", "13 ночей"], 
+                        answer: 3, 
+                        image: "https://www.sunfilm.is/cdn/shop/products/f001-1_800x.jpg?v=1617262660",
+                        funFact: "У Йольских парней забавные имена, например: Колбасохват, Дверехлопальщик и Ложколиз."
+                    },
+                    { 
+                        points: 500, 
+                        text: "Какого имени НЕ существует для Санты в мире?", 
+                        options: ["Papa Rosso", "Pere Noel", "Kriss Kringle", "Joulupukki"], 
+                        answer: 0, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTm3hVfrdkcNzj_263JN35EiRHU1U51hFoeZF_Y7aa7JQ&s",
+                        funFact: "Papa Rosso выдумано. Йоулупукки — это финский 'Рождественский козел', пришедший из языческих традиций."
+                    }
+                  ]
+                },
+                {
+                  name: "Традиции 🌍",
+                  questions: [
+                    { 
+                        points: 100, 
+                        text: "В Колумбии люди бегают с чемоданами в полночь, чтобы...", 
+                        options: ["Подарить соседям", "Отправиться в путешествие", "Получить подарки", "Выбросить старое"], 
+                        answer: 1, 
+                        image: "https://www.nomadichustle.com/wp-content/uploads/2025/05/colombia-new-years-traditions-2.webp",
+                        funFact: "Они бегают вокруг квартала как можно быстрее, чтобы в новом году было много путешествий."
+                    },
+                    { 
+                        points: 200, 
+                        text: "В Италии и Мексике: если хочешь найти любовь, нужно надеть...", 
+                        options: ["Шапку Санты", "Спать под елкой", "Красное белье", "Съесть мандарины"], 
+                        answer: 2, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRVtNL2EscGCqGDs6j7_mRtd1AlkqKMT6awMw&s",
+                        funFact: "Согласно примете, белье должно быть подарено кем-то другим, чтобы магия сработала."
+                    },
+                    { 
+                        points: 300, 
+                        text: "Как в Каракасе (Венесуэла) добираются до церкви рождественским утром?", 
+                        options: ["На лошадях", "На лодках", "На роликах", "Задом наперед"], 
+                        answer: 2, 
+                        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQJXl9bji8fyGalzp6VPjUTmAnw1vhOyWvOrMTtor7z&s",
+                        funFact: "Город перекрывает улицы для машин до 8 утра, чтобы роллерам было безопасно."
+                    },
+                    { 
+                        points: 400, 
+                        text: "В Норвегии прячут ___ в сочельник, чтобы ведьмы не украли.", 
+                        options: ["Обувь", "Метлы", "Подарки", "Свечи"], 
+                        answer: 1, 
+                        image: "https://miro.medium.com/v2/resize:fit:1400/1*kUEQ3yqsmAUs6Ldryj2rAQ.jpeg",
+                        funFact: "Традиция восходит к языческим временам, когда верили, что в сочельник выходят злые духи и ведьмы."
+                    },
+                    { 
+                        points: 500, 
+                        text: "Что гости в Греции традиционно оставляют на пороге в Новый год?", 
+                        options: ["Фрукты", "Оливковую ветвь", "Мокрый камень", "Старый ботинок"], 
+                        answer: 2, 
+                        image: "https://greekreporter.com/wp-content/uploads/2019/12/podariko_new_year_custom_Greece-1.jpg",
+                        funFact: "Тяжелый камень символизирует тяжелый кошелек с золотом, а замшелый камень — удачу."
+                    }
+                  ]
+                }
+            ]
+        };
+
+        // --- COMPONENTS ---
+        const WizardSetup = ({ onStart, players, setPlayers, timeLimit, setTimeLimit, level, setLevel, selectedTopics, setSelectedTopics, availableTopics, language, setLanguage }) => {
+            const [step, setStep] = useState(0);
+            const [newPlayer, setNewPlayer] = useState("");
+            const [recommendationMsg, setRecommendationMsg] = useState("");
+            const t = UI_TEXT[language];
+
+            // --- AUTO-CALCULATION LOGIC ---
+            useEffect(() => {
+                if (step === 3) { // Step 3 is now Topics
+                    let baseMinsPerQ = level === 'easy' ? 2 : 1;
+                    const playerPenalty = players.length > 2 ? (players.length * 0.1) : 0;
+                    const adjustedMinsPerQ = baseMinsPerQ + playerPenalty;
+                    const maxQuestions = Math.floor(timeLimit / adjustedMinsPerQ);
+                    let recommendedCount = Math.floor(maxQuestions / 5);
+                    recommendedCount = Math.max(1, Math.min(recommendedCount, availableTopics.length));
+                    const preselected = availableTopics.slice(0, recommendedCount).map(c => c.name);
+                    setSelectedTopics(preselected);
+                    setRecommendationMsg(t.recMsg(players.length, timeLimit, level === 'easy' ? t.easy.split(' ')[0] : t.hard.split(' ')[0], recommendedCount));
+                }
+            }, [step]); 
+
+            const addPlayer = () => {
+                if (newPlayer.trim()) {
+                    setPlayers([...players, newPlayer.trim()]);
+                    setNewPlayer("");
+                }
+            };
+
+            const toggleTopic = (topicName) => {
+                if (selectedTopics.includes(topicName)) {
+                    setSelectedTopics(selectedTopics.filter(t => t !== topicName));
+                } else {
+                    setSelectedTopics([...selectedTopics, topicName]);
+                }
+            };
+
+            const renderStepContent = () => {
+                switch(step) {
+                    case 0:
+                        return (
+                            <div className="space-y-6 animate-in fade-in zoom-in duration-300">
+                                <h2 className="text-3xl md:text-4xl text-red-700 christmas-font text-center">{t.stepPlayers}</h2>
+                                <div className="bg-white/80 p-6 rounded-2xl border-2 border-red-100 shadow-xl backdrop-blur-sm">
+                                    <div className="flex gap-2 mb-4">
+                                        <input 
+                                            type="text" 
+                                            value={newPlayer}
+                                            onChange={(e) => setNewPlayer(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
+                                            className="flex-1 border-2 border-red-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-500 outline-none text-lg"
+                                            placeholder={t.enterName}
+                                            autoFocus
+                                        />
+                                        <button onClick={addPlayer} className="bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 font-bold text-xl shadow-lg transition-transform active:scale-95">+</button>
+                                    </div>
+                                    
+                                    {/* Small Language Selector */}
+                                    <div className="flex justify-center gap-2 mb-4">
+                                        <button 
+                                            onClick={() => setLanguage('en')} 
+                                            className={`px-3 py-1 rounded-full text-xs font-bold transition-all border-2 ${language === 'en' ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-purple-300'}`}
+                                        >
+                                            🇬🇧 EN
+                                        </button>
+                                        <button 
+                                            onClick={() => setLanguage('ru')} 
+                                            className={`px-3 py-1 rounded-full text-xs font-bold transition-all border-2 ${language === 'ru' ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-purple-300'}`}
+                                        >
+                                            🇷🇺 RU
+                                        </button>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2 min-h-[60px]">
+                                        {players.map((p, i) => (
+                                            <span key={i} className="bg-red-500 text-white px-4 py-2 rounded-full font-bold shadow-md flex items-center gap-2 animate-in fade-in zoom-in christmas-font text-lg tracking-wide">
+                                                {p}
+                                                <button onClick={() => setPlayers(players.filter((_, idx) => idx !== i))} className="hover:text-red-200 bg-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs sans-serif">✕</button>
+                                            </span>
+                                        ))}
+                                        {players.length === 0 && <span className="text-slate-400 italic w-full text-center py-4">{t.waiting}</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    case 1:
+                        return (
+                            <div className="space-y-6 animate-in fade-in zoom-in duration-300">
+                                <h2 className="text-3xl md:text-4xl text-green-700 christmas-font text-center">{t.stepTime}</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {[20, 40, 60].map(tm => (
+                                        <button 
+                                            key={tm}
+                                            onClick={() => setTimeLimit(tm)}
+                                            className={`p-6 rounded-2xl border-4 text-center transition-all duration-300 transform hover:scale-105 ${timeLimit === tm ? 'bg-red-600 border-red-700 text-white shadow-xl scale-105' : 'bg-white border-slate-200 text-slate-600 hover:border-red-300'}`}
+                                        >
+                                            <div className="text-4xl font-black mb-2 christmas-font">{tm}</div>
+                                            <div className="uppercase tracking-wider font-bold text-sm">{t.minutes}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    case 2:
+                        return (
+                            <div className="space-y-6 animate-in fade-in zoom-in duration-300">
+                                <h2 className="text-3xl md:text-4xl text-blue-700 christmas-font text-center">{t.stepLevel}</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <button onClick={() => setLevel('easy')} className={`p-8 rounded-2xl border-4 text-left transition-all duration-300 group ${level === 'easy' ? 'bg-blue-500 border-blue-600 text-white shadow-xl' : 'bg-white border-blue-100 hover:border-blue-300'}`}>
+                                        <div className="text-3xl mb-2 christmas-font">{t.easy}</div>
+                                        <p className={`opacity-80 ${level === 'easy' ? 'text-blue-50' : 'text-slate-500'}`}>{t.easyDesc}</p>
+                                    </button>
+                                    <button onClick={() => setLevel('hard')} className={`p-8 rounded-2xl border-4 text-left transition-all duration-300 group ${level === 'hard' ? 'bg-purple-600 border-purple-700 text-white shadow-xl' : 'bg-white border-purple-100 hover:border-purple-300'}`}>
+                                        <div className="text-3xl mb-2 christmas-font">{t.hard}</div>
+                                        <p className={`opacity-80 ${level === 'hard' ? 'text-purple-50' : 'text-slate-500'}`}>{t.hardDesc}</p>
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    case 3:
+                        return (
+                            <div className="space-y-6 animate-in fade-in zoom-in duration-300">
+                                <h2 className="text-3xl md:text-4xl text-green-800 christmas-font text-center">{t.stepTopics}</h2>
+                                
+                                <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4 mb-4 flex items-center gap-4 text-amber-900 shadow-sm">
+                                    <div className="text-3xl">💡</div>
+                                    <div className="flex-1">
+                                        <p className="font-bold text-lg">{t.recTitle}</p>
+                                        <p className="text-sm opacity-90">{recommendationMsg}</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    {availableTopics.map(cat => (
+                                        <button key={cat.name} onClick={() => toggleTopic(cat.name)} className={`p-4 rounded-xl border-2 transition-all ${selectedTopics.includes(cat.name) ? 'bg-green-100 border-green-500 text-green-800 font-bold' : 'bg-white border-slate-200 text-slate-500'}`}>
+                                            {cat.name}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="text-center text-slate-500 text-sm mt-2">
+                                    {t.selected(selectedTopics.length)}
+                                </div>
+                            </div>
+                        );
+                }
+            };
+
+            return (
+                <div className="max-w-3xl mx-auto pt-10 px-4">
+                    <div className="text-center mb-8">
+                        <h1 className="text-5xl md:text-6xl text-red-600 christmas-font drop-shadow-sm mb-2">{t.title}</h1>
+                        <p className="text-slate-500 font-medium">{t.setupTitle}</p>
+                    </div>
+                    <div className="mb-8 min-h-[300px]">
+                        {renderStepContent()}
+                    </div>
+                    <div className="flex justify-between items-center border-t border-slate-200 pt-6">
+                        <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0} className={`px-6 py-2 rounded-lg font-bold ${step === 0 ? 'opacity-0' : 'text-slate-500 hover:bg-slate-100'}`}>{t.back}</button>
+                        <div className="flex gap-2">
+                            {[0,1,2,3].map(s => (<div key={s} className={`w-3 h-3 rounded-full ${s === step ? 'bg-red-500' : s < step ? 'bg-green-500' : 'bg-slate-200'}`} />))}
+                        </div>
+                        {step < 3 ? (
+                            <button onClick={() => setStep(step + 1)} disabled={(step === 0 && players.length === 0)} className="bg-red-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-transform active:scale-95">{t.next}</button>
+                        ) : (
+                            <button onClick={onStart} disabled={selectedTopics.length === 0} className="bg-green-600 text-white px-10 py-3 rounded-xl font-bold text-xl shadow-lg hover:bg-green-700 disabled:opacity-50 transition-transform active:scale-95 animate-bounce">{t.start}</button>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const QuestionModal = ({ question, onClose, onAnswer, level, language }) => {
+            const [feedback, setFeedback] = useState(null);
+            const [timeLeft, setTimeLeft] = useState(30);
+            const [showFunFact, setShowFunFact] = useState(false);
+            const t = UI_TEXT[language];
+            
+            // Timer Logic for Hard Mode
+            useEffect(() => {
+                if (level === 'hard' && !feedback && timeLeft > 0) {
+                    const timerId = setInterval(() => {
+                        setTimeLeft((prev) => prev - 1);
+                    }, 1000);
+                    return () => clearInterval(timerId);
+                } else if (level === 'hard' && timeLeft === 0 && !feedback) {
+                    handleOptionClick(false); // Time's up!
+                }
+            }, [timeLeft, level, feedback]);
+
+            if (!question) return null;
+            
+            const handleOptionClick = (isCorrect) => {
+                if (feedback) return; // Prevent multiple clicks
+                setFeedback(isCorrect ? 'correct' : 'incorrect');
+                setShowFunFact(true);
+            };
+
+            const handleNext = () => {
+                const isCorrect = feedback === 'correct';
+                onAnswer(isCorrect);
+            }
+
+            return (
+                <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center p-2 md:p-4">
+                    <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] border-4 border-red-100 relative">
+                        {feedback && (
+                            <div className={`absolute inset-0 z-50 flex flex-col animate-in zoom-in duration-300 ${feedback === 'correct' ? 'bg-green-500' : 'bg-red-500'}`}>
+                                <div className="flex-1 overflow-hidden p-4 md:p-6 text-center flex flex-col items-center justify-center">
+                                    {/* Result Header - Compacted */}
+                                    <div className="shrink-0">
+                                        <div className="text-5xl md:text-6xl mb-1 animate-bounce">{feedback === 'correct' ? '🌟' : (timeLeft === 0 ? '⏰' : '❄️')}</div>
+                                        <h2 className="text-white text-3xl md:text-5xl font-bold christmas-font mb-1">
+                                            {feedback === 'correct' ? t.correct : (timeLeft === 0 ? t.timesUp : t.oops)}
+                                        </h2>
+                                        <p className="text-white text-lg md:text-xl font-bold mb-4">{feedback === 'correct' ? `+${question.points} ${t.points}` : `0 ${t.points}`}</p>
+                                    </div>
+
+                                    {/* Content Card - Flexible to fit */}
+                                    <div className="bg-white rounded-xl p-3 md:p-4 w-full max-w-2xl shadow-xl text-slate-800 flex flex-col md:flex-row gap-4 items-center overflow-hidden shrink min-h-0">
+                                        <div className="relative w-full md:w-1/2 h-32 md:h-full min-h-[120px] overflow-hidden rounded-lg bg-slate-200 shrink-0">
+                                            <img src={question.image} alt="Fun Fact" className="w-full h-full object-cover" />
+                                        </div>
+                                        <div className="flex-1 overflow-y-auto max-h-full text-left">
+                                            <h4 className="font-bold text-base md:text-lg text-slate-700 uppercase tracking-wider mb-1">{t.didYouKnow}</h4>
+                                            <p className="text-slate-600 text-sm md:text-base leading-relaxed italic">"{question.funFact}"</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Footer Button */}
+                                <div className="p-4 bg-black/10 backdrop-blur-sm flex justify-center shrink-0">
+                                    <button 
+                                        onClick={handleNext}
+                                        className="bg-white text-slate-900 px-8 py-2 md:py-3 rounded-full font-bold text-lg md:text-xl shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                                    >
+                                        {t.nextQ}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Question Header */}
+                        <div className="bg-red-600 text-white p-3 md:p-4 flex justify-between items-center shrink-0">
+                            <div className="flex items-center gap-4">
+                                <span className="font-bold uppercase tracking-wider text-lg md:text-xl flex items-center gap-2 christmas-font">🎅 {question.category}</span>
+                                <span className="bg-white/20 px-2 py-0.5 rounded text-white sans-serif text-sm">{question.points} pts</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                                {level === 'hard' && (
+                                    <div className={`flex items-center gap-2 font-mono font-bold text-xl ${timeLeft <= 10 ? 'text-amber-300 animate-pulse' : 'text-white'}`}>
+                                        <span>⏰</span>
+                                        <span>{timeLeft}s</span>
+                                    </div>
+                                )}
+                                {!feedback && <button onClick={onClose} className="text-white/80 hover:text-white text-2xl leading-none">&times;</button>}
+                            </div>
+                        </div>
+
+                        {/* Question Content */}
+                        <div className="p-4 md:p-8 overflow-y-auto bg-[url('https://www.transparenttextures.com/patterns/snow.png')] flex-1 flex flex-col justify-center">
+                            <h3 className="text-xl md:text-3xl font-bold text-slate-800 mb-4 md:mb-8 text-center serif leading-relaxed">{question.text}</h3>
+                            <div className="space-y-2 md:space-y-3 w-full max-w-3xl mx-auto">
+                                {question.options.map((opt, idx) => (
+                                    <button key={idx} disabled={!!feedback} onClick={() => handleOptionClick(idx === question.answer)} className="w-full p-3 md:p-4 rounded-xl border-2 border-slate-100 text-left hover:border-blue-300 hover:bg-blue-50 transition-colors flex items-center gap-4 bg-white shadow-sm group disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-sm group-hover:bg-blue-600 group-hover:text-white transition-colors shrink-0">{String.fromCharCode(65 + idx)}</div>
+                                        <span className="text-base md:text-lg font-medium text-slate-700 group-hover:text-slate-900">{opt}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ResultsScreen = ({ players, scores, onRestart, language }) => {
+            const sortedPlayers = [...players].sort((a, b) => (scores[b] || 0) - (scores[a] || 0));
+            const winner = sortedPlayers[0];
+            const t = UI_TEXT[language];
+
+            return (
+                <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-900 text-white relative overflow-hidden">
+                    <div className="text-center mb-10 z-10">
+                        <div className="text-6xl mb-4 animate-bounce">👑</div>
+                        <h1 className="text-5xl md:text-7xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-200 christmas-font">{winner} {t.wins}</h1>
+                        <p className="text-slate-300 text-2xl font-serif italic">{t.with} {scores[winner] || 0} {t.points}</p>
+                    </div>
+                    
+                    <div className="w-full max-w-md space-y-2 mb-10 z-10">
+                        {sortedPlayers.map((p, i) => (
+                            <div key={p} className="flex justify-between items-center p-4 rounded-xl bg-white/10 border border-white/20 backdrop-blur-md">
+                                <div className="flex items-center gap-3"><span className="font-mono text-amber-400 font-bold text-xl">#{i + 1}</span><span className="font-bold text-lg">{p}</span></div>
+                                <span className="font-mono text-amber-300 font-bold">{scores[p] || 0}</span>
+                            </div>
+                        ))}
+                    </div>
+                    <button onClick={onRestart} className="bg-red-600 text-white px-8 py-3 rounded-full font-bold hover:bg-red-700 transition-colors z-10 shadow-lg border-2 border-red-400">{t.setupNew}</button>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [appState, setAppState] = useState('setup');
+            const [players, setPlayers] = useState([]);
+            const [timeLimit, setTimeLimit] = useState(20);
+            const [level, setLevel] = useState('easy');
+            const [language, setLanguage] = useState('en');
+            // We initialize selectedTopics based on default EN initially, but it gets reset in Wizard
+            const [selectedTopics, setSelectedTopics] = useState([]); 
+            
+            const [scores, setScores] = useState({});
+            const [turnIndex, setTurnIndex] = useState(0);
+            const [activeQuestion, setActiveQuestion] = useState(null);
+            const [answeredIds, setAnsweredIds] = useState(new Set());
+            const [pointsConfig, setPointsConfig] = useState([]);
+
+            const startGame = () => {
+                if (players.length === 0) return;
+                const initialScores = {};
+                players.forEach(p => initialScores[p] = 0);
+                setScores(initialScores);
+                setTurnIndex(0);
+                
+                const minsPerQuestion = level === 'easy' ? 2 : 1;
+                const totalSlots = Math.floor(timeLimit / minsPerQuestion);
+                const numTopics = selectedTopics.length;
+                const qsPerTopic = Math.max(1, Math.floor(totalSlots / numTopics));
+                const levels = Math.min(5, Math.max(1, qsPerTopic));
+                const config = Array.from({length: levels}, (_, i) => (i + 1) * 100);
+                setPointsConfig(config);
+
+                const totalGridQs = numTopics * levels;
+                const remainder = totalGridQs % players.length;
+                const initialAnswered = new Set();
+                if (remainder > 0) {
+                    const candidates = [];
+                    for(let r = levels - 1; r >= 0; r--) {
+                         for(let c = numTopics - 1; c >= 0; c--) {
+                             candidates.push(`${selectedTopics[c]}-${r}`);
+                         }
+                    }
+                    for(let i = 0; i < remainder; i++) initialAnswered.add(candidates[i]);
+                }
+                setAnsweredIds(initialAnswered);
+                setAppState('playing');
+            };
+
+            const handleCardClick = (categoryName, qIndex) => {
+                const qId = `${categoryName}-${qIndex}`;
+                if (answeredIds.has(qId)) return;
+                // Get category from current language data
+                const currentData = QUIZ_DATA[language];
+                const category = currentData.find(c => c.name === categoryName);
+                const question = category.questions[qIndex];
+                setActiveQuestion({ ...question, category: categoryName, id: qId, rawIndex: qIndex });
+            };
+
+            const handleAnswer = (isCorrect) => {
+                if (isCorrect) {
+                    const currentPlayer = players[turnIndex];
+                    setScores(prev => ({ ...prev, [currentPlayer]: (prev[currentPlayer] || 0) + activeQuestion.points }));
+                }
+                const newAnswered = new Set(answeredIds);
+                newAnswered.add(activeQuestion.id);
+                setAnsweredIds(newAnswered);
+                setActiveQuestion(null);
+                
+                const totalQs = selectedTopics.length * pointsConfig.length;
+                if (newAnswered.size >= totalQs) setAppState('results');
+                else setTurnIndex((turnIndex + 1) % players.length);
+            };
+
+            if (appState === 'setup') return <WizardSetup onStart={startGame} players={players} setPlayers={setPlayers} timeLimit={timeLimit} setTimeLimit={setTimeLimit} level={level} setLevel={setLevel} selectedTopics={selectedTopics} setSelectedTopics={setSelectedTopics} availableTopics={QUIZ_DATA[language]} language={language} setLanguage={setLanguage} />;
+            if (appState === 'results') return <ResultsScreen players={players} scores={scores} onRestart={() => setAppState('setup')} language={language} />;
+
+            const t = UI_TEXT[language];
+
+            return (
+                <div className="h-screen flex flex-col bg-[#f8fafc] overflow-hidden">
+                    <header className="bg-red-700 text-white p-4 z-40 shadow-lg border-b-4 border-red-800 shrink-0">
+                        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div className="flex flex-wrap justify-center gap-3 w-full md:w-auto">
+                                {players.map((p, i) => (
+                                    <div key={p} className={`px-3 py-1 rounded-xl flex flex-col items-center min-w-[60px] transition-all border-2 ${i === turnIndex ? 'bg-white text-red-700 border-amber-400 shadow-md scale-110 z-10' : 'bg-red-800/50 text-red-200 border-transparent'}`}>
+                                        <span className="text-[10px] md:text-xs font-bold tracking-wider truncate max-w-[80px] christmas-font">{p}</span>
+                                        <span className="text-sm md:text-lg font-black leading-none">{scores[p]}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="text-red-100 text-sm font-medium flex items-center gap-2 shrink-0">
+                                <span className="uppercase tracking-widest text-xs hidden sm:inline">{t.currentTurn}</span>
+                                <span className="bg-white text-red-700 px-4 py-1 rounded-full font-bold shadow-sm christmas-font text-lg">{players[turnIndex]}</span>
+                            </div>
+                        </div>
+                    </header>
+                    <main className="flex-1 flex flex-col min-h-0 relative z-10">
+                        <div className="max-w-7xl mx-auto w-full h-full p-2 md:p-4">
+                            <div 
+                                className="grid gap-2 md:gap-4 h-full"
+                                style={{ 
+                                    gridTemplateColumns: `repeat(${selectedTopics.length}, minmax(70px, 1fr))`,
+                                    gridTemplateRows: `auto repeat(${pointsConfig.length}, 1fr)` 
+                                }}
+                            >
+                                {selectedTopics.map(topicName => (
+                                    <div key={topicName} className="bg-green-700 text-white p-2 md:p-3 rounded-xl shadow-md flex items-center justify-center border-x-2 border-b-4 border-green-900 christmas-font text-sm md:text-xl leading-tight text-center">{topicName}</div>
+                                ))}
+                                {pointsConfig.map((points, rowIndex) => (
+                                    <React.Fragment key={rowIndex}>
+                                        {selectedTopics.map((topicName) => {
+                                            const currentData = QUIZ_DATA[language];
+                                            const category = currentData.find(c => c.name === topicName);
+                                            const question = category.questions[rowIndex];
+                                            const qId = `${topicName}-${rowIndex}`;
+                                            const isAnswered = answeredIds.has(qId);
+                                            if (!question) return <div key={qId}></div>;
+                                            return (
+                                                <button key={qId} disabled={isAnswered} onClick={() => handleCardClick(topicName, rowIndex)} className={`w-full h-full rounded-xl flex items-center justify-center text-lg md:text-3xl font-black transition-all duration-300 transform perspective-1000 ${isAnswered ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-inner border-2 border-slate-200' : 'bg-white text-red-600 shadow-md hover:shadow-xl hover:-translate-y-1 hover:bg-red-50 border-b-4 border-red-200 hover:border-red-300'}`}>
+                                                    {isAnswered ? '❄️' : points}
+                                                </button>
+                                            );
+                                        })}
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                        </div>
+                    </main>
+                    {activeQuestion && <QuestionModal question={activeQuestion} onClose={() => setActiveQuestion(null)} onAnswer={handleAnswer} level={level} language={language} />}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
