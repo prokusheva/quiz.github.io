@@ -91,7 +91,7 @@
                 setupNew: "Setup New Game 🔄",
                 currentTurn: "Current Turn",
                 maxReached: "Max players (9) reached",
-                charsOnly: "Max 8 chars (letters/numbers)"
+                charsOnly: "Max 10 letters"
             },
             ru: {
                 title: "Новогодний Квиз",
@@ -125,7 +125,7 @@
                 setupNew: "Новая игра 🔄",
                 currentTurn: "Ходит",
                 maxReached: "Максимум (9) игроков",
-                charsOnly: "Макс 8 симв. (буквы/цифры)"
+                charsOnly: "Макс 10 символов"
             }
         };
 
@@ -547,7 +547,7 @@
             const [recommendationMsg, setRecommendationMsg] = useState("");
             const t = UI_TEXT[language];
             const MAX_PLAYERS = 9;
-            const MAX_NAME_LEN = 8;
+            const MAX_NAME_LEN = 10;
 
             // --- AUTO-CALCULATION LOGIC ---
             useEffect(() => {
